@@ -1,10 +1,6 @@
 import { useState } from 'react';
 import { Building2, Eye, EyeOff, LogIn, BarChart3, Users, Smartphone, Shield, Phone, Mail } from 'lucide-react';
-import { supabase, getRegisteredSocieties, setCurrentSocietyId } from '../lib/supabase';
-
-const ADMIN_EMAIL    = 'admin@sunriseapts.com';
-const ADMIN_PASSWORD = 'sunrise@123';
-const DEFAULT_SOCIETY_ID = import.meta.env.VITE_SOCIETY_ID;
+import { supabase, setCurrentSocietyId } from '../lib/supabase';
 
 const features = [
   { icon: BarChart3,   text: 'Real-time collection dashboard' },
@@ -45,26 +41,30 @@ export default function Login({ onAdminLogin, onResidentLogin, onRegister, membe
     if (inputType === 'admin') {
       const email = identifier.trim().toLowerCase();
 
-      // Check default demo society
-      if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-        setCurrentSocietyId(DEFAULT_SOCIETY_ID);
-        localStorage.setItem('is_logged_in', 'true');
-        onAdminLogin();
+      // Sign in with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (authError) {
+        setError('Invalid email or password.');
+        setLoading(false);
         return;
       }
 
-      // Check any registered society
-      const registered = getRegisteredSocieties();
-      const match = registered.find(s => s.adminEmail === email && s.adminPassword === password);
-      if (match) {
-        setCurrentSocietyId(match.id);
-        localStorage.setItem('is_logged_in', 'true');
-        onAdminLogin();
+      // Find society linked to this admin
+      const { data: societyData } = await supabase
+        .from('societies').select('id').eq('admin_user_id', authData.user.id).single();
+
+      if (!societyData) {
+        setError('No society found for this account. Please register first.');
+        await supabase.auth.signOut();
+        setLoading(false);
         return;
       }
 
-      setError('Invalid email or password.');
-      setLoading(false);
+      setCurrentSocietyId(societyData.id);
+      localStorage.setItem('is_logged_in', 'true');
+      onAdminLogin();
+      return;
 
     } else if (inputType === 'resident') {
       if (password !== '1234') {

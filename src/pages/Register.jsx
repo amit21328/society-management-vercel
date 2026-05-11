@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Building2, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle, User, MapPin, Home, IndianRupee, Phone, Mail, Lock, Sparkles } from 'lucide-react';
-import { supabase, setCurrentSocietyId, saveRegisteredSociety } from '../lib/supabase';
+import { supabase, setCurrentSocietyId } from '../lib/supabase';
 
 const TOTAL_STEPS = 2;
 
@@ -101,7 +101,19 @@ export default function Register({ onRegister, onBackToLogin }) {
     setErrors({});
     setLoading(true);
 
-    // Create society in Supabase
+    // Step 1: Create Supabase Auth user
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email:    admin.email.trim().toLowerCase(),
+      password: admin.password,
+    });
+
+    if (authError || !authData.user) {
+      setErrors({ submit: authError?.message || 'Failed to create account. Try a different email.' });
+      setLoading(false);
+      return;
+    }
+
+    // Step 2: Create society linked to auth user
     const { data, error } = await supabase.from('societies').insert({
       name:               society.name,
       location:           society.city,
@@ -111,6 +123,7 @@ export default function Register({ onRegister, onBackToLogin }) {
       upi_id:             '',
       secretary_name:     admin.fullName,
       secretary_phone:    admin.phone,
+      admin_user_id:      authData.user.id,
     }).select().single();
 
     if (error || !data) {
@@ -119,13 +132,7 @@ export default function Register({ onRegister, onBackToLogin }) {
       return;
     }
 
-    // Save society ID + admin credentials locally for login
     setCurrentSocietyId(data.id);
-    saveRegisteredSociety({
-      id:            data.id,
-      adminEmail:    admin.email.trim().toLowerCase(),
-      adminPassword: admin.password,
-    });
 
     setLoading(false);
     setSuccess(true);

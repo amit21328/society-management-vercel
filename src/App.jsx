@@ -324,7 +324,7 @@ export default function App() {
   // ── Auth screens ─────────────────────────────────────────
   if (!isLoggedIn) {
     if (authPage === 'register') {
-      return <Register onRegister={() => { localStorage.setItem('is_logged_in', 'true'); setIsLoggedIn(true); setAuthPage('login'); }} onBackToLogin={() => setAuthPage('login')} />;
+      return <Register onRegister={() => { localStorage.setItem('is_logged_in','true'); setIsLoggedIn(true); setAuthPage('login'); }} onBackToLogin={() => setAuthPage('login')} />;
     }
     return (
       <Login
@@ -386,7 +386,7 @@ export default function App() {
               <span className="text-xs font-medium text-slate-700">Admin</span>
             </div>
             <button
-              onClick={() => { localStorage.removeItem('is_logged_in'); setIsLoggedIn(false); }}
+              onClick={async () => { await supabase.auth.signOut(); localStorage.removeItem('is_logged_in'); setIsLoggedIn(false); }}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-200 hover:border-red-200 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />
