@@ -43,21 +43,29 @@ export default function App() {
   const [expenses, setExpenses]           = useState([]);
   const [announcements, setAnnouncements] = useState([]);
 
+  const [dbError, setDbError] = useState(null);
+
   // ── Load all data from Supabase ──────────────────────────
   const loadAll = async () => {
     setLoading(true);
-    const [s, m, p, e, a] = await Promise.all([
-      supabase.from('societies').select('*').eq('id', getCurrentSocietyId()).single(),
-      supabase.from('members').select('*').eq('society_id', getCurrentSocietyId()).order('flat'),
-      supabase.from('payments').select('*').eq('society_id', getCurrentSocietyId()),
-      supabase.from('expenses').select('*').eq('society_id', getCurrentSocietyId()),
-      supabase.from('announcements').select('*').eq('society_id', getCurrentSocietyId()).order('created_at', { ascending: false }),
-    ]);
-    if (s.data) setSociety(toSociety(s.data));
-    if (m.data) setMembers(m.data);
-    if (p.data) setPayments(p.data.map(toPayment));
-    if (e.data) setExpenses(e.data.map(ex => ({ ...ex, amount: Number(ex.amount) })));
-    if (a.data) setAnnouncements(a.data);
+    setDbError(null);
+    try {
+      const [s, m, p, e, a] = await Promise.all([
+        supabase.from('societies').select('*').eq('id', getCurrentSocietyId()).single(),
+        supabase.from('members').select('*').eq('society_id', getCurrentSocietyId()).order('flat'),
+        supabase.from('payments').select('*').eq('society_id', getCurrentSocietyId()),
+        supabase.from('expenses').select('*').eq('society_id', getCurrentSocietyId()),
+        supabase.from('announcements').select('*').eq('society_id', getCurrentSocietyId()).order('created_at', { ascending: false }),
+      ]);
+      if (s.error) { setDbError(`DB Error: ${s.error.message}`); setLoading(false); return; }
+      if (s.data) setSociety(toSociety(s.data));
+      if (m.data) setMembers(m.data);
+      if (p.data) setPayments(p.data.map(toPayment));
+      if (e.data) setExpenses(e.data.map(ex => ({ ...ex, amount: Number(ex.amount) })));
+      if (a.data) setAnnouncements(a.data);
+    } catch (err) {
+      setDbError(`Connection failed: ${err.message}`);
+    }
     setLoading(false);
   };
 
@@ -270,6 +278,21 @@ export default function App() {
           </svg>
         </div>
         <p className="text-slate-600 font-medium">Loading society data...</p>
+      </div>
+    );
+  }
+
+  if (dbError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-4 p-6">
+        <div className="w-14 h-14 rounded-2xl bg-red-100 flex items-center justify-center">
+          <span className="text-2xl">⚠️</span>
+        </div>
+        <p className="text-slate-800 font-bold text-lg">Connection Error</p>
+        <p className="text-red-600 text-sm text-center max-w-md bg-red-50 p-4 rounded-xl font-mono">{dbError}</p>
+        <button onClick={loadAll} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
+          Retry
+        </button>
       </div>
     );
   }
