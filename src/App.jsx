@@ -45,26 +45,38 @@ export default function App() {
 
   const [dbError, setDbError] = useState(null);
 
-  // ── Load all data from Supabase ──────────────────────────
+  // ── Load all data — direct fetch (bypasses Supabase client issues) ──
   const loadAll = async () => {
     setLoading(true);
     setDbError(null);
     try {
-      const [s, m, p, e, a] = await Promise.all([
-        supabase.from('societies').select('*').eq('id', getCurrentSocietyId()).single(),
-        supabase.from('members').select('*').eq('society_id', getCurrentSocietyId()).order('flat'),
-        supabase.from('payments').select('*').eq('society_id', getCurrentSocietyId()),
-        supabase.from('expenses').select('*').eq('society_id', getCurrentSocietyId()),
-        supabase.from('announcements').select('*').eq('society_id', getCurrentSocietyId()).order('created_at', { ascending: false }),
+      const BASE = import.meta.env.VITE_SUPABASE_URL + '/rest/v1';
+      const KEY  = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const sid  = getCurrentSocietyId();
+      const H    = { 'apikey': KEY, 'Authorization': `Bearer ${KEY}`, 'Content-Type': 'application/json' };
+
+      const [sRes, mRes, pRes, eRes, aRes] = await Promise.all([
+        fetch(`${BASE}/societies?id=eq.${sid}&select=*`, { headers: H }),
+        fetch(`${BASE}/members?society_id=eq.${sid}&select=*&order=flat`, { headers: H }),
+        fetch(`${BASE}/payments?society_id=eq.${sid}&select=*`, { headers: H }),
+        fetch(`${BASE}/expenses?society_id=eq.${sid}&select=*`, { headers: H }),
+        fetch(`${BASE}/announcements?society_id=eq.${sid}&select=*&order=created_at.desc`, { headers: H }),
       ]);
-      if (s.error) { setDbError(`DB Error: ${s.error.message}`); setLoading(false); return; }
-      if (s.data) setSociety(toSociety(s.data));
-      if (m.data) setMembers(m.data);
-      if (p.data) setPayments(p.data.map(toPayment));
-      if (e.data) setExpenses(e.data.map(ex => ({ ...ex, amount: Number(ex.amount) })));
-      if (a.data) setAnnouncements(a.data);
+
+      if (!sRes.ok) { setDbError(`API Error: ${sRes.status} ${sRes.statusText}`); setLoading(false); return; }
+
+      const [societies, members, payments, expenses, announcements] = await Promise.all([
+        sRes.json(), mRes.json(), pRes.json(), eRes.json(), aRes.json()
+      ]);
+
+      if (societies?.[0]) setSociety(toSociety(societies[0]));
+      if (members)        setMembers(members);
+      if (payments)       setPayments(payments.map(toPayment));
+      if (expenses)       setExpenses(expenses.map(ex => ({ ...ex, amount: Number(ex.amount) })));
+      if (announcements)  setAnnouncements(announcements);
+
     } catch (err) {
-      setDbError(`Connection failed: ${err.message}`);
+      setDbError(`Fetch failed: ${err.message}`);
     }
     setLoading(false);
   };
