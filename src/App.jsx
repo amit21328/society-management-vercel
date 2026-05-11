@@ -283,6 +283,8 @@ export default function App() {
   }
 
   if (dbError) {
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-4 p-6">
         <div className="w-14 h-14 rounded-2xl bg-red-100 flex items-center justify-center">
@@ -290,6 +292,10 @@ export default function App() {
         </div>
         <p className="text-slate-800 font-bold text-lg">Connection Error</p>
         <p className="text-red-600 text-sm text-center max-w-md bg-red-50 p-4 rounded-xl font-mono">{dbError}</p>
+        <div className="text-xs font-mono bg-slate-100 p-3 rounded-lg max-w-md w-full space-y-1">
+          <p>URL: {url ? url.slice(0,40) + '...' : '❌ NOT SET'}</p>
+          <p>KEY: {key ? key.slice(0,20) + '...' : '❌ NOT SET'}</p>
+        </div>
         <button onClick={loadAll} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
           Retry
         </button>
